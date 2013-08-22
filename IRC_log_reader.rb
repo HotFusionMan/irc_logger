@@ -1,13 +1,21 @@
 require 'rubygems'
+
+require 'securerandom'
+ENV['SESSION_SECRET'] = SecureRandom.base64(1024)
+
+ENV['GOOGLE_AUTH_DOMAIN'] = 'unow.com'
+
 require 'sinatra/base'
+require 'sinatra/google-auth'
 require 'thin'
-require 'listen'
 
 
 LOGFILE_PATH = File.absolute_path(File.dirname(__FILE__)) + '/IRC_log'
 
+
 class IRCLogReader < Sinatra::Base
   enable :threaded
+  register Sinatra::GoogleAuth
 
   Dir.chdir( LOGFILE_PATH )
   @@log_filenames = Dir.glob( 'IRC.log*' ).sort { |a, b| b <=> a }
@@ -28,15 +36,20 @@ class IRCLogReader < Sinatra::Base
     EOT
   end
 
+
   template :file do
     '<html><body><pre><%= @file_contents %></pre></body></html>'
   end
 
+
   get '/' do
+    authenticate
     erb :index
   end
 
   get '/:filename' do
+    authenticate
+
     filename = params[:filename]
 
     unless @file_contents = @@log_file_contents[filename]
@@ -56,6 +69,3 @@ Listen.to( LOGFILE_PATH, :filter => /\AIRC\.log\./, :relative_paths => TRUE ) do
   @@log_filenames += ( added_paths + removed_paths ) #.map { |path| File.basename( path ) }
   @@log_filenames.sort! { |a, b| b <=> a }
 end
-
-
-IRCLogReader.new
